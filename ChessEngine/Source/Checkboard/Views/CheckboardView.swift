@@ -21,6 +21,10 @@ class CheckboardView: UIView {
     private var onMoveSelectedPiece: AnySubscriber<AvailableMove, Never>?
     private var currentlyAvailableMoves: [AvailableMove]?
     
+    var kingInCheckView: PieceView? {
+        return pieceViews.first(where: { $0.pieceId == kingInCheckId })
+    }
+    
     override init(frame: CGRect) {
         super.init(frame: frame)
         
@@ -51,9 +55,8 @@ class CheckboardView: UIView {
             guard let strongSelf = self else {
                 return
             }
-            if strongSelf.kingInCheckId != nil {
-                strongSelf.setHighlightedKingInCheck(false)
-            }
+            
+            strongSelf.kingInCheckView?.removeAttribute(.kingInCheck)
 
             let type = move.type
             switch type {
@@ -86,7 +89,7 @@ class CheckboardView: UIView {
             
             if case .check(let kingId, _) = move.situation {
                 strongSelf.kingInCheckId = kingId
-                strongSelf.setHighlightedKingInCheck(true)
+                strongSelf.kingInCheckView?.addAttribute(.kingInCheck)
             }
         }
         cancelBag.insert(moveResultSubscription)
@@ -136,7 +139,7 @@ class CheckboardView: UIView {
             selectedPieceView = selectedPiece
             selectedPieceInitialFrame = selectedPieceView?.frame
             _ = onSelectPiece?.receive(selectedPiece.pieceId)
-            selectedPiece.setHighlightedAsSelected(true)
+            selectedPiece.addAttribute(.selected)
         }
     }
     
@@ -199,18 +202,10 @@ class CheckboardView: UIView {
     }
     
     private func resetSelection() {
-        selectedPieceView?.setHighlightedAsSelected(false)
+        selectedPieceView?.removeAttribute(.selected)
         selectedPieceInitialFrame = nil
         selectedPieceView = nil
         unhighlightMoves()
-    }
-    
-    private func setHighlightedKingInCheck(_ isHighlighted: Bool) {
-        guard let kingView = pieceViews.first(where: { $0.pieceId == kingInCheckId }) else {
-            return
-        }
-        
-        kingView.setHighlightedAsKingInCheck(isHighlighted)
     }
     
     private func highlightMoves(_ moves: [AvailableMove]) {
@@ -226,7 +221,7 @@ class CheckboardView: UIView {
                     let pieceView = pieceViews.first(where: { $0.pieceId == pieceId })
                 {
                     insertSubview(pieceView, belowSubview: selectedPieceView)
-                    pieceView.setHighlightedAsAttacked(true)
+                    pieceView.addAttribute(.underAttack)
                 }
             }
         }
@@ -234,7 +229,7 @@ class CheckboardView: UIView {
     
     private func unhighlightMoves() {
         squareViews.values.forEach({ $0.setHighlighted(false) })
-        pieceViews.forEach({ $0.setHighlightedAsAttacked(false) })
+        pieceViews.forEach({ $0.removeAttribute(.underAttack) })
     }
     
     private func createSquare(at position: CheckboardPosition, with size: CGSize) -> SquareView {
