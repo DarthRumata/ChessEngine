@@ -9,7 +9,7 @@ import Combine
 
 class CheckboardViewModel {
     private let checkboard: Checkboard
-    private var currentMove: AvailableMove?
+    private var moveInProgress: AvailableMove?
     
     var checkboardInfoPublisher: AnyPublisher<CheckboardValue, Never> {
         return checkboardInfoSubject.eraseToAnyPublisher()
@@ -34,8 +34,8 @@ class CheckboardViewModel {
         default:
             break
         }
-        if let piece = strongSelf.checkboard.piece(withId: pieceId) {
-            let moves = strongSelf.checkboard.availableMoves(for: piece.immutableValue)
+        if let piece = strongSelf.checkboard.pieceValue(withId: pieceId), strongSelf.checkboard.canMovePiece(piece) {
+            let moves = strongSelf.checkboard.availableMoves(for: piece)
             strongSelf.availableMovesSubject.send(moves)
         }
         return .unlimited
@@ -45,7 +45,7 @@ class CheckboardViewModel {
             return .none
         }
         
-        strongSelf.currentMove = move
+        strongSelf.moveInProgress = move
         
         if case .promotion = move.type {
             strongSelf.shouldSelectPromotionSubject.send(strongSelf.checkboard.pawnPromotionKinds)
@@ -57,11 +57,11 @@ class CheckboardViewModel {
         return .unlimited
     })
     private(set) lazy var onSelectPromotion = AnySubscriber<PieceKind, Never>(receiveValue: { [weak self] kind in
-        guard let strongSelf = self, var currentMove = strongSelf.currentMove else {
+        guard let strongSelf = self, var currentMove = strongSelf.moveInProgress else {
             return .none
         }
         let updatedMove = currentMove.updatedWithPromotion(kind)
-        strongSelf.currentMove = updatedMove
+        strongSelf.moveInProgress = updatedMove
         strongSelf.applyCurrentMove()
        
         return .unlimited
@@ -89,12 +89,12 @@ class CheckboardViewModel {
     }
     
     private func applyCurrentMove() {
-        guard let currentMove = currentMove else {
+        guard let currentMove = moveInProgress else {
             return
         }
         do {
             let result = try checkboard.applyMove(currentMove)
-            self.currentMove = nil
+            self.moveInProgress = nil
             moveResultSubject.send(result)
         } catch let error {
             print(error)

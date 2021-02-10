@@ -110,12 +110,12 @@ class Checkboard {
         pieces = generatePieces()
     }
     
-    func piece(withId pieceId: String) -> Piece? {
-        return pieces.first(where: { $0.id == pieceId })
+    func pieceValue(withId pieceId: String) -> PieceValue? {
+        return piece(withId: pieceId)?.immutableValue
     }
     
-    func piece(at position: CheckboardPosition) -> Piece? {
-        return pieces.first(where: { $0.position == position })
+    func canMovePiece(_ piece: PieceValue) -> Bool {
+        return moveHistory.last?.piece.isWhite != piece.isWhite
     }
     
     func availableMoves(for piece: PieceValue) -> [AvailableMove] {
@@ -198,8 +198,16 @@ class Checkboard {
         return historyMove
     }
     
-    // MARK: Generate pieces
+    // MARK: Get pieces
+    private func piece(withId pieceId: String) -> Piece? {
+        return pieces.first(where: { $0.id == pieceId })
+    }
     
+    private func piece(at position: CheckboardPosition) -> Piece? {
+        return pieces.first(where: { $0.position == position })
+    }
+    
+    // MARK: Generate pieces
     private func generatePieces() -> [Piece] {
         pieces.removeAll()
         
