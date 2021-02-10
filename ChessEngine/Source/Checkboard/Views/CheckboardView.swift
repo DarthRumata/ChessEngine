@@ -88,7 +88,7 @@ class CheckboardView: UIView {
             self?.resetSelection()
             
             switch move.situation {
-            case .check(let kingId, _):
+            case .check(let kingId, _, _):
                 strongSelf.kingInCheckId = kingId
                 strongSelf.kingInCheckView?.addAttributes(.kingInCheck)
             case .checkmate(let kingId, _):

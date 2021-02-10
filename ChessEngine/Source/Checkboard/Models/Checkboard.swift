@@ -86,7 +86,7 @@ enum CheckboardSituation: Equatable {
     }
     
     case normal
-    case check(kingId: String, attakers: [Piece])
+    case check(kingId: String, attakers: [PieceValue], coverPositions: [CheckboardPosition])
     case checkmate(kingId: String, forWhite: Bool)
     case stalemate
 }
@@ -417,6 +417,17 @@ class Checkboard {
             return false
         }
         
+        if case .check(_, let attakers, let coverPositions) = situation {
+            if attakers.count > 1 {
+                return move.piece.kind != .king
+            } else {
+                let canTakeAttacker = move.targetPosition == attakers[0].position
+                let canCoverKing = coverPositions.contains(move.targetPosition)
+                
+                return !canTakeAttacker && !canCoverKing
+            }
+        }
+        
         guard let coverDirection = linearDirection(from: king.position, to: move.piece.position) else {
             return false
         }
@@ -434,8 +445,8 @@ class Checkboard {
     }
     
     //MARK: Check square whether under attack
-    private func allAttackersOnPosition(_ position: CheckboardPosition, forWhite isWhitePosition: Bool) -> [Piece] {
-        var attackers = [Piece]()
+    private func allAttackersOnPosition(_ position: CheckboardPosition, forWhite isWhitePosition: Bool) -> [PieceValue] {
+        var attackers = [PieceValue]()
         let allPossbileDirection = PieceMoveDirection.allKnight + PieceMoveDirection.allLinear
         for direction in allPossbileDirection {
             if let attacker = attackerOnPosition(position, forWhite: isWhitePosition, from: direction) {
@@ -457,7 +468,7 @@ class Checkboard {
         return false
     }
     
-    private func attackerOnPosition(_ position: CheckboardPosition, forWhite isWhitePosition: Bool, from direction: PieceMoveDirection) -> Piece? {
+    private func attackerOnPosition(_ position: CheckboardPosition, forWhite isWhitePosition: Bool, from direction: PieceMoveDirection) -> PieceValue? {
         let isKnightDirection = PieceMoveDirection.allKnight.contains(direction)
         var distance = 1
         while true {
@@ -504,7 +515,7 @@ class Checkboard {
                 isAttacker = distance == 1 && isKingDirection
             }
             
-            return isAttacker ? suspectedPiece : nil
+            return isAttacker ? suspectedPiece.immutableValue : nil
         }
     }
     
@@ -524,18 +535,19 @@ class Checkboard {
         
         if attackers.count > 1 {
             return canMoveKing
-                ? .check(kingId: enemyKing.id, attakers: attackers)
+                ? .check(kingId: enemyKing.id, attakers: attackers, coverPositions: [])
                 : .checkmate(kingId: enemyKing.id, forWhite: enemyKing.isWhite)
         } else {
             let canTakeSingleAttacker = allEnemyMoves.contains(where: { $0.targetPosition == attackers[0].position })
             let isPossibleToCoverKing = attackers[0].kind != .knight && attackers[0].kind != .pawn
             var canCoverKing = false
+            var coverPositions = [CheckboardPosition]()
             if isPossibleToCoverKing {
-                let coverPositions = emptyPositions(after: enemyKing.position, towards: attackers[0].position)
+                coverPositions = emptyPositions(after: enemyKing.position, towards: attackers[0].position)
                 canCoverKing = allEnemyMoves.contains(where: { $0.piece.kind != .king && coverPositions.contains($0.targetPosition) })
             }
             return (canTakeSingleAttacker || canCoverKing || canMoveKing)
-                ? .check(kingId: enemyKing.id, attakers: attackers)
+                ? .check(kingId: enemyKing.id, attakers: attackers, coverPositions: coverPositions)
                 : .checkmate(kingId: enemyKing.id, forWhite: enemyKing.isWhite)
         }
     }
