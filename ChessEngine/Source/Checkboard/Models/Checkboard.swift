@@ -31,19 +31,30 @@ struct CheckboardPosition: Hashable {
 }
 
 struct PieceMoveDirection: Equatable {
+    
     let columnDelta: Int
     let rowDelta: Int
     
-    static let allLinear: [PieceMoveDirection] = [
-        PieceMoveDirection(columnDelta: 1, rowDelta: -1),
+    static let whitePawnAttack: [PieceMoveDirection] = [
         PieceMoveDirection(columnDelta: 1, rowDelta: 1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: 1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: -1),
+        PieceMoveDirection(columnDelta: -1, rowDelta: 1)
+    ]
+    
+    static let blackPawnAttack: [PieceMoveDirection] = [
+        PieceMoveDirection(columnDelta: 1, rowDelta: -1),
+        PieceMoveDirection(columnDelta: -1, rowDelta: -1)
+    ]
+    
+    static let allRook: [PieceMoveDirection] = [
         PieceMoveDirection(columnDelta: 0, rowDelta: 1),
         PieceMoveDirection(columnDelta: 0, rowDelta: -1),
         PieceMoveDirection(columnDelta: 1, rowDelta: 0),
         PieceMoveDirection(columnDelta: -1, rowDelta: 0)
     ]
+    
+    static let allBishop: [PieceMoveDirection] = whitePawnAttack + blackPawnAttack
+    
+    static let allLinear: [PieceMoveDirection] = allRook + allBishop
     
     static let allKnight: [PieceMoveDirection] = [
         PieceMoveDirection(columnDelta: -2, rowDelta: 1),
@@ -56,29 +67,6 @@ struct PieceMoveDirection: Equatable {
         PieceMoveDirection(columnDelta: -1, rowDelta: -2)
     ]
     
-    static let allBishop: [PieceMoveDirection] = [
-        PieceMoveDirection(columnDelta: 1, rowDelta: -1),
-        PieceMoveDirection(columnDelta: 1, rowDelta: 1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: 1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: -1)
-    ]
-    
-    static let allRook: [PieceMoveDirection] = [
-        PieceMoveDirection(columnDelta: 0, rowDelta: 1),
-        PieceMoveDirection(columnDelta: 0, rowDelta: -1),
-        PieceMoveDirection(columnDelta: 1, rowDelta: 0),
-        PieceMoveDirection(columnDelta: -1, rowDelta: 0)
-    ]
-    
-    static let whitePawnAttack: [PieceMoveDirection] = [
-        PieceMoveDirection(columnDelta: 1, rowDelta: 1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: 1)
-    ]
-    
-    static let blackPawnAttack: [PieceMoveDirection] = [
-        PieceMoveDirection(columnDelta: 1, rowDelta: -1),
-        PieceMoveDirection(columnDelta: -1, rowDelta: -1)
-    ]
 }
 
 enum CheckboardSituation: Equatable {
@@ -125,25 +113,28 @@ class Checkboard {
     }
     
     func availableMoves(for piece: PieceValue) -> [AvailableMove] {
+        var availableMoves: [AvailableMove]
         switch piece.kind {
         case .pawn:
-            return availableMovesForPawn(piece)
+            availableMoves = availableMovesForPawn(piece)
             
         case .knight:
             let directions = moveDirections(for: piece)
-            return availableMoves(piece: piece, directions: directions, limit: 1)
+            availableMoves = self.availableMoves(piece: piece, directions: directions, limit: 1)
             
         case .bishop, .rook, .queen:
             let directions = moveDirections(for: piece)
-            return availableMoves(piece: piece, directions: directions, limit: max(rowCount, columnCount))
+            availableMoves = self.availableMoves(piece: piece, directions: directions, limit: max(rowCount, columnCount))
             
         case .king:
             let directions = moveDirections(for: piece)
-            let commonMoves = availableMoves(piece: piece, directions: directions, limit: 1)
+            let commonMoves = self.availableMoves(piece: piece, directions: directions, limit: 1)
             let castlingMoves = self.castlingMoves(for: piece)
             let allKingMoves = commonMoves + castlingMoves
             return allKingMoves.filter({ isPositionUnderAttack($0.targetPosition, forWhite: piece.isWhite) == false })
         }
+        
+        return availableMoves.filter({ !isThreatenKingMove(move: $0) })
     }
     
     func applyMove(_ move: AvailableMove) throws -> AppliedMove {
@@ -407,6 +398,27 @@ class Checkboard {
         }
     }
     
+    private func isThreatenKingMove(move: AvailableMove) -> Bool {
+        guard let king = pieces.first(where: { $0.kind == .king && $0.isWhite == move.piece.isWhite }) else {
+            return false
+        }
+        
+        guard let coverDirection = linearDirection(from: king.position, to: move.piece.position) else {
+            return false
+        }
+        
+        if let afterMoveDirection = linearDirection(from: king.position, to: move.targetPosition), afterMoveDirection == coverDirection {
+            return false
+        }
+        let piece = self.piece(withId: move.piece.id)
+        // Hack: temporary move piece to target position to allow calculation of future situation
+        piece?.position = move.targetPosition
+        defer {
+            piece?.position = move.piece.position
+        }
+        return attackerOnPosition(king.position, forWhite: king.isWhite, from: coverDirection) != nil
+    }
+    
     //MARK: Check square whether under attack
     private func allAttackersOnPosition(_ position: CheckboardPosition, forWhite isWhitePosition: Bool) -> [Piece] {
         var attackers = [Piece]()
@@ -503,8 +515,8 @@ class Checkboard {
             let isPossibleToCoverKing = attackers[0].kind != .knight && attackers[0].kind != .pawn
             var canCoverKing = false
             if isPossibleToCoverKing {
-                let coverPosition = firstPosition(after: enemyKing.position, towards: attackers[0].position)
-                canCoverKing = allEnemyMoves.contains(where: { $0.piece.kind != .king && $0.targetPosition == coverPosition })
+                let coverPositions = emptyPositions(after: enemyKing.position, towards: attackers[0].position)
+                canCoverKing = allEnemyMoves.contains(where: { $0.piece.kind != .king && coverPositions.contains($0.targetPosition) })
             }
             return (canTakeSingleAttacker || canCoverKing || canMoveKing)
                 ? .check(kingId: enemyKing.id, attakers: attackers)
@@ -531,12 +543,33 @@ class Checkboard {
             || position.row == rowCount - 1
     }
     
-    private func firstPosition(after closePosition: CheckboardPosition, towards distantPosition: CheckboardPosition) -> CheckboardPosition? {
-        let directionVector = SIMD2(distantPosition.column, distantPosition.row) &- SIMD2(closePosition.column, closePosition.row)
-        if abs(directionVector.x) == abs(directionVector.y) {
-            let length = abs(directionVector.x)
+    private func emptyPositions(after closePosition: CheckboardPosition, towards distantPosition: CheckboardPosition) -> [CheckboardPosition] {
+        guard closePosition != distantPosition else {
+            return []
+        }
+        if let direction = linearDirection(from: closePosition, to: distantPosition) {
+            var distance = 1
+            var positions = [CheckboardPosition]()
+            while true {
+                let newPosition = closePosition.offsetIn(direction: direction, forDistance: distance)
+                guard distantPosition != newPosition else {
+                    return positions
+                }
+                
+                positions.append(newPosition)
+                distance += 1
+            }
+        }
+        
+        return []
+    }
+    
+    private func linearDirection(from firstPosition: CheckboardPosition, to secondPosition: CheckboardPosition) -> PieceMoveDirection? {
+        let directionVector = SIMD2(secondPosition.column, secondPosition.row) &- SIMD2(firstPosition.column, firstPosition.row)
+        if directionVector.x == 0 || directionVector.y == 0 || abs(directionVector.x) == abs(directionVector.y) {
+            let length = max(abs(directionVector.x), abs(directionVector.y))
             let normalizedVector = SIMD2(directionVector.x / length, directionVector.y / length)
-            return closePosition.offsetBy(rowDelta: normalizedVector.y, columnDelta: normalizedVector.x)
+            return PieceMoveDirection(columnDelta: normalizedVector.x, rowDelta: normalizedVector.y)
         }
         
         return nil
