@@ -39,6 +39,12 @@ class Piece {
     
 }
 
+extension Piece: CustomDebugStringConvertible {
+    var debugDescription: String {
+        return "\(isWhite ? "White" : "Black") \(kind.description) at \(position)"
+    }
+}
+
 extension PieceKind: Identifiable {
     
     var id: String {

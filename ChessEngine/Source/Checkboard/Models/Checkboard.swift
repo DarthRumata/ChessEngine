@@ -30,6 +30,12 @@ struct CheckboardPosition: Hashable {
     }
 }
 
+extension CheckboardPosition: CustomDebugStringConvertible {
+    var debugDescription: String {
+        return "(\(row), \(column))"
+    }
+}
+
 struct PieceMoveDirection: Equatable {
     
     let columnDelta: Int
@@ -526,6 +532,9 @@ class Checkboard {
     
     private func allMoves(forWhite isWhite: Bool) -> [AvailableMove] {
         return pieces.reduce(into: []) { (allMoves, piece) in
+            guard piece.isWhite == isWhite else {
+                return
+            }
             let moves = availableMoves(for: piece.immutableValue)
             allMoves.append(contentsOf: moves)
         }
