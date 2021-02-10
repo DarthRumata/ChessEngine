@@ -56,7 +56,7 @@ class CheckboardView: UIView {
                 return
             }
             
-            strongSelf.kingInCheckView?.removeAttribute(.kingInCheck)
+            strongSelf.kingInCheckView?.removeAttributes(.kingInCheck)
 
             let type = move.type
             switch type {
@@ -87,9 +87,15 @@ class CheckboardView: UIView {
             }
             self?.resetSelection()
             
-            if case .check(let kingId, _) = move.situation {
+            switch move.situation {
+            case .check(let kingId, _):
                 strongSelf.kingInCheckId = kingId
-                strongSelf.kingInCheckView?.addAttribute(.kingInCheck)
+                strongSelf.kingInCheckView?.addAttributes(.kingInCheck)
+            case .checkmate(let kingId, _):
+                strongSelf.kingInCheckId = kingId
+                strongSelf.kingInCheckView?.addAttributes([.kingDefeated, .kingInCheck])
+            default:
+                break
             }
         }
         cancelBag.insert(moveResultSubscription)
@@ -139,7 +145,7 @@ class CheckboardView: UIView {
             selectedPieceView = selectedPiece
             selectedPieceInitialFrame = selectedPieceView?.frame
             _ = onSelectPiece?.receive(selectedPiece.pieceId)
-            selectedPiece.addAttribute(.selected)
+            selectedPiece.addAttributes(.selected)
         }
     }
     
@@ -202,7 +208,7 @@ class CheckboardView: UIView {
     }
     
     private func resetSelection() {
-        selectedPieceView?.removeAttribute(.selected)
+        selectedPieceView?.removeAttributes(.selected)
         selectedPieceInitialFrame = nil
         selectedPieceView = nil
         unhighlightMoves()
@@ -221,15 +227,16 @@ class CheckboardView: UIView {
                     let pieceView = pieceViews.first(where: { $0.pieceId == pieceId })
                 {
                     insertSubview(pieceView, belowSubview: selectedPieceView)
-                    pieceView.addAttribute(.underAttack)
+                    pieceView.addAttributes(.underAttack)
                 }
             }
         }
     }
     
     private func unhighlightMoves() {
+        currentlyAvailableMoves = nil
         squareViews.values.forEach({ $0.setHighlighted(false) })
-        pieceViews.forEach({ $0.removeAttribute(.underAttack) })
+        pieceViews.forEach({ $0.removeAttributes(.underAttack) })
     }
     
     private func createSquare(at position: CheckboardPosition, with size: CGSize) -> SquareView {

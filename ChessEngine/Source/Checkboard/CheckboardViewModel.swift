@@ -26,11 +26,11 @@ class CheckboardViewModel {
     
     private(set) lazy var onSelectPiece = AnySubscriber<String, Never>(receiveValue: { [weak self] pieceId in
         guard let strongSelf = self else {
-            return .none
+            return .unlimited
         }
         switch strongSelf.checkboard.situation {
         case .stalemate, .checkmate:
-            return .none
+            return .unlimited
         default:
             break
         }
@@ -94,6 +94,7 @@ class CheckboardViewModel {
         }
         do {
             let result = try checkboard.applyMove(currentMove)
+            self.currentMove = nil
             moveResultSubject.send(result)
         } catch let error {
             print(error)

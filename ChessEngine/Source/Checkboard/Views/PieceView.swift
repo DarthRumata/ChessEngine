@@ -24,6 +24,7 @@ struct PieceAttributes: OptionSet {
     static let selected = PieceAttributes(rawValue: 1 << 0)
     static let kingInCheck = PieceAttributes(rawValue: 1 << 1)
     static let underAttack = PieceAttributes(rawValue: 1 << 2)
+    static let kingDefeated = PieceAttributes(rawValue: 1 << 3)
 }
 
 class PieceView: UIImageView {
@@ -72,15 +73,19 @@ class PieceView: UIImageView {
             } else {
                 strongSelf.image = strongSelf.originalImage
             }
+            
+            if attributes.contains(.kingDefeated) {
+                strongSelf.transform = CGAffineTransform(rotationAngle: -CGFloat.pi / 2)
+            }
         }
     }
     
-    func addAttribute(_ attribute: PieceAttributes) {
-        attributes.insert(attribute)
+    func addAttributes(_ attributes: PieceAttributes) {
+        self.attributes.insert(attributes)
     }
     
-    func removeAttribute(_ attribute: PieceAttributes) {
-        attributes.remove(attribute)
+    func removeAttributes(_ attributes: PieceAttributes) {
+        self.attributes.remove(attributes)
     }
     
 }

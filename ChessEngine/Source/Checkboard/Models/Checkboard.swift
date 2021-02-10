@@ -87,7 +87,7 @@ enum CheckboardSituation: Equatable {
     
     case normal
     case check(kingId: String, attakers: [Piece])
-    case checkmate(forWhite: Bool)
+    case checkmate(kingId: String, forWhite: Bool)
     case stalemate
 }
 
@@ -185,7 +185,7 @@ class Checkboard {
             )
             appliedMoveType = .castling(castledRook.immutableValue)
         }
-        let situation = try calculateCheckboardSituationAfterMove(move)
+        situation = try calculateCheckboardSituationAfterMove(move)
         print(situation)
         let historyMove = AppliedMove(
             piece: move.piece,
@@ -515,7 +515,9 @@ class Checkboard {
         }
         
         if attackers.count > 1 {
-            return canMoveKing ? .check(kingId: enemyKing.id, attakers: attackers) : .checkmate(forWhite: enemyKing.isWhite)
+            return canMoveKing
+                ? .check(kingId: enemyKing.id, attakers: attackers)
+                : .checkmate(kingId: enemyKing.id, forWhite: enemyKing.isWhite)
         } else {
             let canTakeSingleAttacker = allEnemyMoves.contains(where: { $0.targetPosition == attackers[0].position })
             let isPossibleToCoverKing = attackers[0].kind != .knight && attackers[0].kind != .pawn
@@ -526,7 +528,7 @@ class Checkboard {
             }
             return (canTakeSingleAttacker || canCoverKing || canMoveKing)
                 ? .check(kingId: enemyKing.id, attakers: attackers)
-                : .checkmate(forWhite: enemyKing.isWhite)
+                : .checkmate(kingId: enemyKing.id, forWhite: enemyKing.isWhite)
         }
     }
     
